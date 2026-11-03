@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Yedekler
+*.bak
+*.bak-*
+
+# Kullanıcı verisi ve API anahtarları — ASLA yüklenmez
+Ayarlar/
+Projeler/
+Kayitlar/
+projects/
+outputs/
+taslaklar/
+dosyalar/
+.cache/
+.gecici/
+.uygulama-verisi/
+baslatma-gunlugu.txt
+anahtarlar.txt
+api-hesaplari.txt
+gorsel-anahtarlar.txt
+kota-bekleme.json
+ltx-space*.txt
+ltx-space-sayac.json
+kaggle.json
+.env
+*.env
+
+# Gömülü araçlar
+ffmpeg/
+*.exe

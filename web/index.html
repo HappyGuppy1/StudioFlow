@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudioFlow</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23375bdd'/%3E%3Cpath d='M9 22V10l13 6z' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="editor.css?v=20261021e">
+</head>
+<body>
+
+<!-- ── Kütüphane ───────────────────────────────────────────────────────────── -->
+<section id="kutuphane" class="ekran" hidden>
+  <header class="kutuphane-ust">
+    <div class="marka"><span class="marka-isaret" aria-hidden="true">▶</span>StudioFlow</div>
+    <p>Projeni seç ya da yeni bir proje başlat: sahneler, sesler ve altyazılar zaman çizelgesinde açılır.</p>
+    <nav class="ust-sekmeler" aria-label="Bölümler">
+      <a class="ust-sekme secili" data-sekme="projeler" href="#">🎬 Projeler</a>
+      <a class="ust-sekme" data-sekme="araclar" href="#araclar">🧰 Araçlar</a>
+      <a class="ust-sekme" data-sekme="api" href="#api-hesaplari">🔑 API hesapları</a>
+    </nav>
+  </header>
+  <div id="proje-izgara" class="proje-izgara" role="list"></div>
+  <p id="kutuphane-durum" class="soluk"></p>
+</section>
+
+<!-- ── Araçlar ve API hesapları (StudioFlow'un sayfaları, editör tasarımıyla) ── -->
+<section id="araclar" class="ekran" hidden>
+  <header class="arac-ust">
+    <div class="marka"><span class="marka-isaret" aria-hidden="true">▶</span>StudioFlow</div>
+    <nav class="ust-sekmeler" aria-label="Bölümler">
+      <a class="ust-sekme" data-sekme="projeler" href="#">🎬 Projeler</a>
+      <a class="ust-sekme" data-sekme="araclar" href="#araclar">🧰 Araçlar</a>
+      <a class="ust-sekme" data-sekme="api" href="#api-hesaplari">🔑 API hesapları</a>
+    </nav>
+    <span class="bosluk"></span>
+    <span id="arac-durum" class="uretim-ozet" hidden><span class="donen" aria-hidden="true"></span>çalışıyor…</span>
+  </header>
+  <div class="arac-govde">
+    <nav id="arac-listesi" class="arac-listesi" aria-label="Araçlar"></nav>
+    <main id="arac-alani" class="arac-alani"></main>
+  </div>
+  <div id="arac-bildirimler" class="arac-bildirimler" aria-live="polite"></div>
+</section>
+
+<!-- Yeni proje: StudioFlow'daki gibi önce ad; metin, prompt'lar ve ayarlar editörde doldurulur -->
+<dialog id="yeni-proje" class="pencere kucuk-pencere" aria-labelledby="yeni-proje-baslik">
+  <form id="yeni-proje-form" method="dialog">
+    <h2 id="yeni-proje-baslik">Yeni proje</h2>
+    <p class="soluk">Projeye ad ver. Proje taslak olarak açılır: <b>Metin</b> bölümünde anlatımı ve
+      prompt'ları, <b>Seslendirme</b>, <b>Altyazı</b> ve <b>Ayarlar</b> bölümlerinde ayarları seç,
+      sonra <b>▶ Projeye başlat</b>'a bas. Başlatana kadar kota harcanmaz.</p>
+    <label>Proje adı <input id="yp-ad" name="ad" required maxlength="80" placeholder="ör. Axolotl Belgeseli"></label>
+    <p id="yp-hata" class="hata-metin" hidden></p>
+    <div class="pencere-dugmeler">
+      <button type="button" class="dugme" id="yp-vazgec">Vazgeç</button>
+      <button type="submit" class="dugme birincil" id="yp-olustur">Oluştur</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Onay penceresi (geri alınamaz ya da kota harcayan işlemler için) -->
+<dialog id="onay" class="pencere kucuk-pencere">
+  <form method="dialog">
+    <h2 id="onay-baslik">Emin misin?</h2>
+    <p id="onay-metin" class="soluk"></p>
+    <div class="pencere-dugmeler">
+      <button value="hayir" class="dugme">Vazgeç</button>
+      <button value="evet" class="dugme tehlike" id="onay-evet">Evet</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="goruntuleyici" class="pencere goruntuleyici" aria-labelledby="gr-baslik">
+  <div class="gr-ust">
+    <h2 id="gr-baslik">Dosya</h2>
+    <a id="gr-indir" class="dugme kucuk" download>⬇ İndir</a>
+    <button type="button" class="dugme kucuk" id="gr-kapat" aria-label="Kapat">✕</button>
+  </div>
+  <div id="gr-icerik" class="gr-icerik"></div>
+</dialog>
+
+<!-- Dışa aktarma penceresi: konum seçilir, ilerleme burada izlenir. İş sürerken pencere
+     kilitlidir (kapatılamaz, arkadaki editör kullanılamaz); yalnızca İptal durdurur.
+     Yalnızca zaman çizelgesinde işaretli (☑) izler videoya girer. -->
+<dialog id="disa-pencere" class="pencere disa-pencere" aria-labelledby="dp-baslik">
+  <div class="dp-govde">
+    <div class="dp-ust">
+      <h2 id="dp-baslik">Dışa aktar</h2>
+      <span id="dp-durum" class="dp-rozet" hidden></span>
+    </div>
+    <!-- 1 · hazırlık: konum ve izler -->
+    <div id="dp-hazirlik" class="dp-bolum">
+      <label class="dp-alan">Kayıt konumu
+        <span class="dp-konum">
+          <input id="dp-hedef" spellcheck="false" placeholder="ör. C:\Videolar\film.mp4">
+          <button type="button" class="dugme" id="dp-gozat">📁 Gözat…</button>
+        </span>
+      </label>
+      <p class="dp-not soluk">Video bu adla kaydedilir. Aynı adda dosya varsa üzerine yazılır.</p>
+      <div class="dp-alan">Videoya girecek izler
+        <div id="dp-izler" class="dp-izler"></div>
+      </div>
+    </div>
+    <!-- 2 · ilerleme ve sonuç -->
+    <div id="dp-ilerleme" class="dp-bolum" hidden>
+      <div class="dp-cubuk-satir">
+        <span class="dp-cubuk"><span id="dp-cubuk"></span></span>
+        <span id="dp-yuzde" class="dp-yuzde">%0</span>
+      </div>
+      <p id="dp-mesaj" class="dp-mesaj"></p>
+      <p id="dp-yol" class="dp-yol soluk" hidden></p>
+      <p id="dp-kilit" class="dp-not soluk">Dışa aktarma bitene kadar editör kilitli. Durdurmak için <b>İptal</b>'e bas.</p>
+    </div>
+    <p id="dp-hata" class="hata-metin" hidden></p>
+    <div class="pencere-dugmeler">
+      <button type="button" class="dugme" id="dp-vazgec">Vazgeç</button>
+      <button type="button" class="dugme tehlike" id="dp-iptal" hidden>İptal</button>
+      <button type="button" class="dugme" id="dp-goster" hidden>Klasörde göster</button>
+      <a id="dp-ac" class="dugme" target="_blank" hidden>Videoyu aç</a>
+      <button type="button" class="dugme" id="dp-kapat" hidden>Kapat</button>
+      <button type="button" class="dugme birincil" id="dp-baslat">Dışa aktarmayı başlat</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ── Editör ──────────────────────────────────────────────────────────────── -->
+<section id="editor" class="ekran" hidden>
+  <header class="ust-cubuk">
+    <button id="geri" class="dugme hayalet" type="button" title="Projelere dön">‹ Projeler</button>
+    <a class="dugme hayalet" href="#araclar" title="Görsel, video, ses, prompt araçları ve API hesapları">🧰 Araçlar</a>
+    <h1 id="proje-adi" class="proje-adi"></h1>
+    <span id="tuval-cip" class="cip"></span>
+    <span id="proje-durum-cip" class="cip"></span>
+    <span id="durum-cipler" class="cipler"></span>
+    <span class="bosluk"></span>
+    <!-- Üretim ya da katman işi sürerken -->
+    <div id="uretim-ozet" class="uretim-ozet" hidden>
+      <span class="donen" aria-hidden="true"></span>
+      <span id="uretim-ozet-mesaj"></span>
+      <button id="uretim-ozet-durdur" class="dugme kucuk" type="button">⏹ Durdur</button>
+      <button id="uretim-ozet-kapat" class="dugme kucuk hayalet" type="button" title="Kapat" hidden>✕</button>
+    </div>
+    <button id="baslat" class="dugme birincil" type="button" hidden
+            title="Klasörü kur ve akışı başlat: seslendirme → sahne planı → prompt kapısı (kota harcar)">▶ Projeye başlat</button>
+    <a id="video-indir" class="dugme" hidden download>StudioFlow videosu</a>
+    <button id="disa-aktar" class="dugme birincil" type="button"
+            title="İşaretli izlerden video oluştur (projects/&lt;proje&gt;/disa-aktarim/)">Dışa aktar</button>
+  </header>
+
+  <div class="calisma">
+    <!-- Sol: şerit + panel -->
+    <nav class="ray" aria-label="Bölümler">
+      <button class="ray-oge secili" data-panel="sahneler" type="button"><span aria-hidden="true">🎞</span>Sahneler</button>
+      <button class="ray-oge" data-panel="ayarlar" type="button"><span aria-hidden="true">⚙</span>Ayarlar</button>
+      <button class="ray-oge" data-panel="uretim" type="button"><span aria-hidden="true">▶</span>Üretim</button>
+      <button class="ray-oge" data-panel="metin" type="button"><span aria-hidden="true">📝</span>Metin</button>
+      <button class="ray-oge" data-panel="karakterler" type="button"><span aria-hidden="true">👥</span>Karakter</button>
+      <button class="ray-oge" data-panel="seslendirme" type="button"><span aria-hidden="true">🎙</span>Seslendirme</button>
+      <button class="ray-oge" data-panel="dublaj" type="button" data-proje><span aria-hidden="true">🌐</span>Dublaj</button>
+      <button class="ray-oge" data-panel="muzik" type="button" data-proje><span aria-hidden="true">🎵</span>Müzik</button>
+      <button class="ray-oge" data-panel="altyazi" type="button"><span aria-hidden="true">💬</span>Altyazı</button>
+      <button class="ray-oge" data-panel="efekt" type="button" data-proje><span aria-hidden="true">🔊</span>Efekt</button>
+      <button class="ray-oge" data-panel="izler" type="button" data-proje><span aria-hidden="true">🎚</span>Karışım</button>
+      <button class="ray-oge" data-panel="bilgi" type="button"><span aria-hidden="true">ⓘ</span>Bilgi</button>
+    </nav>
+    <aside class="panel" id="panel">
+      <div class="panel-bolum" data-panel="sahneler">
+        <div class="panel-baslik"><h2>Sahneler</h2>
+          <select id="sahne-suzgec" title="Duruma göre süz">
+            <option value="">Hepsi</option><option value="TAMAM">Tamam</option>
+            <option value="YARIM">Yarım</option><option value="HATA">Hata</option>
+            <option value="BEKLİYOR">Bekliyor</option><option value="cikarilan">Videodan çıkarılan</option>
+          </select>
+        </div>
+        <div id="sahne-izgara" class="sahne-izgara"></div>
+      </div>
+      <div class="panel-bolum" data-panel="metin" hidden>
+        <div class="panel-baslik"><h2>Metin</h2><span class="kayit-durum soluk"></span></div>
+        <div id="panel-metin" class="bolum-icerik"></div>
+        <details class="katlanir" id="metin-sahneleri" open>
+          <summary>Anlatım sahneleri · tıkla, o sahneye git</summary>
+          <ol id="metin-listesi" class="metin-listesi"></ol>
+        </details>
+      </div>
+      <div class="panel-bolum" data-panel="karakterler" hidden>
+        <div class="panel-baslik"><h2>Karakterler</h2></div>
+        <div id="panel-karakterler" class="bolum-icerik"></div>
+      </div>
+      <div class="panel-bolum" data-panel="seslendirme" hidden>
+        <div class="panel-baslik"><h2>Seslendirme</h2><span class="kayit-durum soluk"></span></div>
+        <div id="panel-seslendirme" class="bolum-icerik"></div>
+      </div>
+      <div class="panel-bolum" data-panel="dublaj" hidden>
+        <div class="panel-baslik"><h2>Dublaj</h2></div>
+        <div id="panel-dublaj" class="bolum-icerik"></div>
+      </div>
+      <div class="panel-bolum" data-panel="muzik" hidden>
+        <div class="panel-baslik"><h2>Müzik</h2></div>
+        <div id="panel-muzik" class="bolum-icerik"></div>
+      </div>
+      <div class="panel-bolum" data-panel="altyazi" hidden>
+        <div class="panel-baslik"><h2>Altyazı</h2><span class="kayit-durum soluk"></span></div>
+        <div id="panel-altyazi" class="bolum-icerik"></div>
+      </div>
+      <div class="panel-bolum" data-panel="efekt" hidden>
+        <div class="panel-baslik"><h2>Ses efektleri</h2></div>
+        <div id="panel-efekt" class="bolum-icerik"></div>
+      </div>
+      <div class="panel-bolum" data-panel="uretim" hidden>
+        <div class="panel-baslik"><h2>Üretim</h2></div>
+        <div id="uretim-paneli" class="uretim-paneli"></div>
+      </div>
+      <div class="panel-bolum" data-panel="izler" hidden>
+        <div class="panel-baslik"><h2>Dışa aktarma karışımı</h2></div>
+        <div id="iz-listesi" class="iz-listesi"></div>
+      </div>
+      <div class="panel-bolum" data-panel="ayarlar" hidden>
+        <div class="panel-baslik"><h2>Ayarlar</h2><span class="kayit-durum soluk"></span></div>
+        <div id="panel-ayarlar" class="bolum-icerik"></div>
+      </div>
+      <div class="panel-bolum" data-panel="bilgi" hidden>
+        <div class="panel-baslik"><h2>Proje</h2></div>
+        <dl id="proje-bilgi" class="bilgi-listesi"></dl>
+        <button id="proje-sil" class="dugme tehlike genis-dugme sil-dugme" type="button"
+                title="Proje klasörü ve içindeki her şey kalıcı olarak silinir">🗑 Projeyi sil</button>
+      </div>
+    </aside>
+
+    <!-- Orta: önizleme -->
+    <main class="sahne-alani">
+      <div class="oynatici-kap">
+        <div id="tuval" class="tuval">
+          <img id="onizleme-kare" alt="" hidden>
+          <video id="onizleme-video" muted playsinline preload="auto" hidden></video>
+          <div id="onizleme-bos" class="onizleme-bos">Sahne yok</div>
+          <div id="onizleme-altyazi" class="onizleme-altyazi" hidden></div>
+          <div id="onizleme-etiket" class="onizleme-etiket"></div>
+        </div>
+      </div>
+      <div class="kontroller">
+        <button id="onceki" class="dugme ikon" type="button" title="Önceki sahne (←)">⏮</button>
+        <button id="oynat" class="dugme ikon birincil" type="button" title="Oynat / duraklat (boşluk)">▶</button>
+        <button id="sonraki" class="dugme ikon" type="button" title="Sonraki sahne (→)">⏭</button>
+        <span id="zaman" class="zaman">0:00.0 / 0:00.0</span>
+        <label class="secim kucuk" title="Videodan çıkarılan sahneleri oynatırken atla"><input id="kesik-onizleme" type="checkbox" checked> Kesik önizleme</label>
+        <span class="bosluk"></span>
+        <label class="secim kucuk" title="Ses düzeyi">🔊<input id="ses-duzeyi" type="range" min="0" max="1" step="0.05" value="0.9"></label>
+        <button id="tam-ekran" class="dugme ikon" type="button" title="Tam ekran">⛶</button>
+      </div>
+    </main>
+
+    <!-- Sağ: seçili sahne -->
+    <aside class="denetci" id="denetci">
+      <div class="panel-baslik"><h2 id="denetci-baslik">Sahne</h2><span id="denetci-durum" class="durum-cip"></span></div>
+      <div id="denetci-icerik" class="denetci-icerik">
+        <p class="soluk">Zaman çizelgesinden ya da listeden bir sahne seç.</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Alt: zaman çizelgesi -->
+  <section class="zaman-cizelgesi" aria-label="Zaman çizelgesi">
+    <div class="zc-arac">
+      <button id="zoom-azalt" class="dugme ikon kucuk" type="button" title="Uzaklaştır (−)">−</button>
+      <input id="zoom" type="range" min="0.5" max="160" step="0.5" value="12" title="Yakınlaştırma (saniye başına piksel)">
+      <button id="zoom-arttir" class="dugme ikon kucuk" type="button" title="Yakınlaştır (+)">+</button>
+      <button id="sigdir" class="dugme kucuk" type="button" title="Bütün projeyi göster">Sığdır</button>
+      <label class="secim kucuk"><input id="takip" type="checkbox" checked> Oynatırken izle</label>
+      <span class="ayrac" aria-hidden="true"></span>
+      <span class="soluk kucuk-yazi">Dışa aktarma aralığı</span>
+      <button id="aralik-bas" class="dugme kucuk" type="button" title="Oynatma çizgisini başlangıç yap (I)">[ Başlangıç</button>
+      <button id="aralik-bit" class="dugme kucuk" type="button" title="Oynatma çizgisini bitiş yap (O)">Bitiş ]</button>
+      <button id="aralik-temizle" class="dugme kucuk" type="button" title="Bütün proje">Temizle</button>
+      <span class="bosluk"></span>
+      <span id="zc-bilgi" class="soluk"></span>
+    </div>
+    <div class="zc-govde">
+      <div class="zc-adlar" id="zc-adlar"></div>
+      <div class="zc-kaydirma" id="zc-kaydirma">
+        <div class="zc-icerik" id="zc-icerik">
+          <canvas id="cetvel" class="cetvel" height="26"></canvas>
+          <div id="izler" class="izler"></div>
+          <div id="aralik-sol" class="aralik-disi" hidden></div>
+          <div id="aralik-sag" class="aralik-disi" hidden></div>
+          <div id="oynatma-cizgisi" class="oynatma-cizgisi"><span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<script src="paneller.js?v=20261021e"></script>
+<script src="araclar.js?v=20261021e"></script>
+<script src="editor.js?v=20261021e"></script>
+</body>
+</html>

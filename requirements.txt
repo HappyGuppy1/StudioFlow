@@ -1,0 +1,17 @@
+# StudioFlow — Python 3.12 ile denendi
+fastapi>=0.141
+uvicorn>=0.53
+gradio>=6.27
+gradio_client>=2.7
+pywebview>=6.2
+requests>=2.34
+numpy>=2.5
+pillow>=12.3
+soundfile>=0.14
+google-genai>=2.23
+edge-tts>=7.3
+ddgs>=9.16
+trafilatura>=2.2
+yt-dlp>=2026.8.19
+kaggle>=2.2
+lxml_html_clean>=0.4.5
