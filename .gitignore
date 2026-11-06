@@ -9,16 +9,16 @@ venv/
 *.bak-*
 
 # Kullanıcı verisi ve API anahtarları — ASLA yüklenmez
-Ayarlar/
-Projeler/
-Kayitlar/
-projects/
-outputs/
-taslaklar/
-dosyalar/
-.cache/
-.gecici/
-.uygulama-verisi/
+/Ayarlar/
+/Projeler/
+/Kayitlar/
+/projects/
+/outputs/
+/taslaklar/
+/dosyalar/
+/.cache/
+/.gecici/
+/.uygulama-verisi/
 baslatma-gunlugu.txt
 anahtarlar.txt
 api-hesaplari.txt
@@ -31,5 +31,5 @@ kaggle.json
 *.env
 
 # Gömülü araçlar
-ffmpeg/
+/ffmpeg/
 *.exe
