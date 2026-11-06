@@ -1,0 +1,81 @@
+# Her yüklemede sıfır bir Windows makinede StudioFlow'u bir kullanıcının yapacağı gibi kurup açar:
+# Baslat.bat ortamı ve paketleri kurar, sunucu yanıt veriyor mu, veri klasörleri oluştu mu,
+# bütün modüller yükleniyor mu.
+name: Kurulum testi
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Baslat.bat ile kur ve aç
+        shell: pwsh
+        run: |
+          $p = Start-Process cmd.exe -ArgumentList '/c', 'Baslat.bat', '--tarayici' -PassThru `
+                 -RedirectStandardOutput baslat.log -RedirectStandardError baslat-hata.log
+          $yanit = $null
+          for ($i = 0; $i -lt 1200 -and -not $yanit; $i += 5) {
+            Start-Sleep 5
+            if ($p.HasExited) { break }
+            try { $yanit = Invoke-WebRequest http://127.0.0.1:7870/ -UseBasicParsing -TimeoutSec 5 } catch {}
+          }
+          if (-not $yanit) {
+            Get-Content baslat.log, baslat-hata.log -ErrorAction SilentlyContinue | Select-Object -Last 60
+            throw "StudioFlow açılmadı"
+          }
+          $baslik = [regex]::Match($yanit.Content, '<title>(.*?)</title>').Groups[1].Value
+          "Sunucu: HTTP $($yanit.StatusCode), başlık: $baslik"
+          if ($baslik -notmatch 'StudioFlow') { throw "Beklenmeyen sayfa: $baslik" }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - name: Veri klasörleri oluştu mu
+        shell: pwsh
+        run: |
+          foreach ($k in 'Projeler', 'Kayitlar', 'Ayarlar') {
+            $yol = Join-Path $env:USERPROFILE "Documents\StudioFlow\$k"
+            if (-not (Test-Path $yol)) { throw "Oluşmadı: $yol" }
+            "Var: $yol"
+          }
+
+      - name: Bütün modüller yükleniyor mu
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          $kod = @'
+          import importlib, pkgutil, sys
+          sys.path.insert(0, ".")
+          hata = []
+          sayi = 0
+          for paket in ("studioflow", "sunucu"):
+              for mod in pkgutil.walk_packages(importlib.import_module(paket).__path__, paket + "."):
+                  if mod.name == "sunucu.__main__":
+                      continue
+                  try:
+                      importlib.import_module(mod.name)
+                      sayi += 1
+                  except Exception as e:
+                      hata.append(f"{mod.name}: {type(e).__name__}: {e}")
+          print("Yüklenen modül:", sayi)
+          print("\n".join(hata))
+          sys.exit(1 if hata else 0)
+          '@
+          Set-Content -Path "$env:RUNNER_TEMP\modul_test.py" -Value $kod -Encoding utf8
+          .venv\Scripts\python.exe "$env:RUNNER_TEMP\modul_test.py"
+
+      - name: Günlükler
+        if: always()
+        shell: pwsh
+        run: Get-Content baslat.log, baslat-hata.log -ErrorAction SilentlyContinue | Select-Object -Last 40

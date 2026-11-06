@@ -1,5 +1,7 @@
 # StudioFlow
 
+[![Kurulum testi](https://github.com/HappyGuppy1/StudioFlow/actions/workflows/test.yml/badge.svg)](https://github.com/HappyGuppy1/StudioFlow/actions/workflows/test.yml)
+
 StudioFlow; senaryo, görsel, video, seslendirme, dublaj, müzik ve altyazıyı tek bir
 editörde birleştiren, yapay zekâ destekli bir video üretim stüdyosudur. Bilgisayarınızda
 yerel bir sunucu olarak çalışır ve kendi uygulama penceresinde (ya da tarayıcıda) açılır.
