@@ -6,11 +6,29 @@ yalnızca adresler ve yanıt metinlerinin okunması.
 """
 import json
 import re
+from urllib.parse import quote
 
 CF_API = "https://api.cloudflare.com/client/v4"
 CF_DASHBOARD_URL = "https://dash.cloudflare.com/"
 CF_TOKENS_URL = "https://dash.cloudflare.com/profile/api-tokens"
 CF_GUIDE_URL = "https://developers.cloudflare.com/workers-ai/get-started/rest-api/"
+
+
+def cf_verify_urls(account_id=""):
+    """Token doğrulama adresleri, denenme sırasıyla.
+
+    Cloudflare'de iki tür API token'ı vardır: **kullanıcı** token'ı (My Profile > API
+    Tokens, `cfut_`) yalnızca `/user/tokens/verify` ile, **hesaba ait** token (Manage
+    Account > API Tokens, `cfat_`) yalnızca `/accounts/{id}/tokens/verify` ile doğrulanır;
+    öbür adres 401 "Invalid API Token" döner (11.11.2026: Workers AI izinli, üretimde
+    çalışan bir `cfat_` token'ı sağlık kontrolünde 401 aldı ve hesap "yetki hatası" ile
+    elendi). Önce kullanıcı adresi, Account ID varsa sonra hesap adresi denenir.
+    """
+    adresler = [f"{CF_API}/user/tokens/verify"]
+    account_id = (account_id or "").strip()
+    if account_id:
+        adresler.append(f"{CF_API}/accounts/{quote(account_id, safe='')}/tokens/verify")
+    return adresler
 
 
 def mask_account(account_id):

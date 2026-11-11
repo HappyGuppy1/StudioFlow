@@ -25,7 +25,7 @@ from studioflow.cekirdek import depolama as _depolama
 from studioflow.cekirdek.hatalar import gorsel_hatasi_temizle
 from studioflow.cekirdek.cloudflare_http import (CF_API, CF_TOKENS_URL, cf_error,
                                                      cf_status_hint, is_plausible_cf_token,
-                                                     mask_account)
+                                                     cf_verify_urls, mask_account)
 from studioflow.saglayicilar.taban import GorselSaglayici
 
 
@@ -693,17 +693,24 @@ class CloudflareGorsel(GorselSaglayici):
         # Boş liste hata değil: dar kapsamlı token'larda bu uç nokta boş döner.
         return accounts, ""
 
-    def token_dogrula(self, token):
-        """Token'ın kendisini Cloudflare'e sorar: GET /user/tokens/verify."""
-        try:
-            response = requests.get(f"{CF_API}/user/tokens/verify",
-                                    headers={"Authorization": f"Bearer {token.strip()}"}, timeout=45)
-        except requests.exceptions.ConnectionError:
-            return "error", "api.cloudflare.com adresine bağlanılamadı (internet?)."
-        except requests.exceptions.Timeout:
-            return "error", "Cloudflare 45 saniyede yanıt vermedi."
-        except requests.exceptions.RequestException:
-            return "error", "Token biçimi HTTP başlığı olarak gönderilemedi."
+    def token_dogrula(self, token, account_id=""):
+        """Token'ın kendisini Cloudflare'e sorar.
+
+        Önce `/user/tokens/verify` (kullanıcı token'ı), 401 dönerse ve Account ID varsa
+        `/accounts/{id}/tokens/verify` (hesaba ait token) denenir; bkz. `cf_verify_urls`.
+        """
+        for adres in cf_verify_urls(account_id):
+            try:
+                response = requests.get(adres, headers={"Authorization": f"Bearer {token.strip()}"},
+                                        timeout=45)
+            except requests.exceptions.ConnectionError:
+                return "error", "api.cloudflare.com adresine bağlanılamadı (internet?)."
+            except requests.exceptions.Timeout:
+                return "error", "Cloudflare 45 saniyede yanıt vermedi."
+            except requests.exceptions.RequestException:
+                return "error", "Token biçimi HTTP başlığı olarak gönderilemedi."
+            if response.status_code != 401:
+                break
         if response.status_code == 401:
             return "invalid", "Cloudflare bu token'ı tanımıyor (401)."
         if not response.ok:
@@ -768,9 +775,10 @@ class CloudflareGorsel(GorselSaglayici):
                  "Global API Key 'Authorization: Bearer' şemasıyla çalışmaz (X-Auth-Email + "
                  "X-Auth-Key ister) — bu yüzden 401 alıyorsun. My Profile > API Tokens yolundan "
                  "bir API Token oluştur.")
-        if not token.startswith("cfut_"):
-            ekle("info", "Token 'cfut_' ile başlamıyor",
-                 "Yeni Cloudflare API token'ları cfut_ ile başlar. Eski bir token da çalışabilir.")
+        if not token.startswith(("cfut_", "cfat_")):
+            ekle("info", "Token 'cfut_' ya da 'cfat_' ile başlamıyor",
+                 "Yeni Cloudflare API token'ları cfut_ (kullanıcı) ya da cfat_ (hesaba ait) ile "
+                 "başlar. Eski bir token da çalışabilir.")
 
         gonderilebilir = len(token) >= 20 and not any(harf.isspace() for harf in token)
         durum, mesaj = ("skipped", "")
@@ -779,7 +787,7 @@ class CloudflareGorsel(GorselSaglayici):
                  "Token'ın biçimi bozuk olduğu için uzak doğrulama atlandı. Önce kopyalama "
                  "sorununu düzelt, sonra tekrar teşhis et.")
         else:
-            durum, mesaj = self.token_dogrula(token)
+            durum, mesaj = self.token_dogrula(token, account_id)
 
         if durum == "active":
             ekle("ok", "Token geçerli ve aktif", "Cloudflare bu token'ı tanıyor.")
@@ -878,7 +886,7 @@ class CloudflareGorsel(GorselSaglayici):
         if not account_id or not token:
             return ("Cloudflare bilgileri eksik. Account ID ve API token'ı girip kaydet; "
                     f"token'ı {CF_TOKENS_URL} adresinde oluşturursun.")
-        durum, mesaj = self.token_dogrula(token)
+        durum, mesaj = self.token_dogrula(token, account_id)
         if durum == "active":
             return (f"Cloudflare bilgileri kayıtlı (hesap {mask_account(account_id)}) ve token aktif. "
                     "Worker AI kotası hesabından harcanır.")

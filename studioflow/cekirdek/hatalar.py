@@ -68,7 +68,7 @@ def ses_hatasi_temizle(exc, *secrets):
 def gorsel_hatasi_temizle(exc, *secrets):
     """Görsel (Cloudflare) hatası: anahtarlar gizlenir, kota/yetki ipucu eklenir."""
     message = _gizle(str(exc), secrets,
-                     r"(?:hf_[A-Za-z0-9]+|AIza[A-Za-z0-9_-]+|cfut_[A-Za-z0-9_-]+)")
+                     r"(?:hf_[A-Za-z0-9]+|AIza[A-Za-z0-9_-]+|cf[ua]t_[A-Za-z0-9_-]+)")
     low = message.lower()
     # Uçtan uca denemede (02.10.2026) gerçek bir insan fotoğrafı karakter referansı
     # olunca Cloudflare bazı kareleri içerik filtresine takıp reddetti; aynı sahne

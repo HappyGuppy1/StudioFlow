@@ -17,7 +17,7 @@ from contextlib import contextmanager
 import requests
 
 from studioflow.ayarlar import api_hesaplari
-from studioflow.cekirdek.cloudflare_http import CF_API
+from studioflow.cekirdek.cloudflare_http import CF_API, cf_verify_urls
 from studioflow.cekirdek.metin import ilk_satir as _ilk_satir, metin as _metin
 from studioflow.saglayicilar import kota_listesi
 
@@ -172,8 +172,13 @@ class HesapHavuzu:
             token = _metin(deger.get("cf_token"))
             if not token or not _metin(deger.get("cf_account_id")):
                 return "bozuk", "Account ID ya da token eksik"
-            yanit = requests.get(f"{CF_API}/user/tokens/verify",
-                                 headers={"Authorization": f"Bearer {token}"}, timeout=20)
+            # Kullanıcı (`cfut_`) ve hesaba ait (`cfat_`) token'lar farklı adreste
+            # doğrulanır (bkz. `cf_verify_urls`); biri 401 verirse öbürü denenir.
+            for adres in cf_verify_urls(deger.get("cf_account_id")):
+                yanit = requests.get(adres, headers={"Authorization": f"Bearer {token}"},
+                                     timeout=20)
+                if yanit.status_code != 401:
+                    break
             return _durum(yanit.ok, yanit.status_code, "Cloudflare token'ı")
         if hizmet == "gemini":
             anahtar = _metin(deger.get("gemini_key"))
