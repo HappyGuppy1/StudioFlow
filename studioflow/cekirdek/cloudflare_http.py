@@ -10,7 +10,10 @@ from urllib.parse import quote
 
 CF_API = "https://api.cloudflare.com/client/v4"
 CF_DASHBOARD_URL = "https://dash.cloudflare.com/"
-CF_TOKENS_URL = "https://dash.cloudflare.com/profile/api-tokens"
+# Hesaba ait (`cfat_`) token sayfası: Manage Account › Account API Tokens. `:account`
+# yer tutucusunda panel önce hesabı seçtirir. Kullanıcı token'ları (`cfut_`) My Profile ›
+# API Tokens'tadır.
+CF_TOKENS_URL = "https://dash.cloudflare.com/?to=/:account/api-tokens"
 CF_GUIDE_URL = "https://developers.cloudflare.com/workers-ai/get-started/rest-api/"
 
 

@@ -85,8 +85,9 @@ HIZMETLER = {
     "cloudflare": {
         "label": "Cloudflare Workers AI",
         "kullanim": "Görsel üretimi, **prompt yazımı** ve Gemini/Chatterbox altyazı hizalaması",
-        "link": "https://dash.cloudflare.com/profile/api-tokens",
-        "adimlar": "**Create Token → Workers AI** şablonunu kullan. İzin satırı "
+        "link": "https://dash.cloudflare.com/?to=/:account/api-tokens",
+        "adimlar": "Sayfa **Manage Account › Account API Tokens**'ı açar (sorarsa hesabını seç). "
+                    "**Create Token → Workers AI** şablonunu kullan. İzin satırı "
                     "`Account · Workers AI · Edit` olmalı ve *Account Resources* kısmında hesabını "
                     "seçmelisin (en sık yapılan hata budur). Account ID'yi bu sekmedeki "
                     "**Token'dan Account ID'yi bul** düğmesiyle otomatik alabilirsin.",
