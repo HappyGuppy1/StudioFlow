@@ -14,6 +14,7 @@ from studioflow.proje.sabitler import ADIM_SANIYE, PROMPT_KELIME_SINIRI, SURE_SI
 from studioflow.proje.sahneleme import (
     bolme_puani, bolum_basligi_mi, icerik_sahneleri, parcalara_bol, plan_sahneleri,
     sahne_plani_detayli, sahne_tavani, sahneleri_sureye_uydur)
+from studioflow.proje.sahne_stratejileri import VARSAYILAN_STRATEJI
 from studioflow.proje.yeniden_deneme import adim_yedekli_hesapli, dur_turu, hata_yaz
 from studioflow.saglayicilar import gorsel_cloudflare
 from studioflow.saglayicilar.hesap_havuzu import aktif_kimlik
@@ -189,7 +190,7 @@ def sahne_plani_uret(veri, klasor, sure, on_plan=None):
     alt = SURE_SINIRLARI[0]
     ust = max(alt, proje_adim_saniyesi(veri))
     dil = LANGUAGES.get(ses.get("dil"), ses.get("dil") or "tr")
-    strateji = ayar.get("sahne_stratejisi", "tarih")
+    strateji = ayar.get("sahne_stratejisi", VARSAYILAN_STRATEJI)
     # Servis geçişleri günlüğe yazılır: plan yazılırken Gemini bırakıp ChatGPT'ye
     # geçildiyse bu, planın kaynağıyla birlikte `proje.txt`'te görünür.
     notlar = []
@@ -369,7 +370,7 @@ def prompt_uretici(ayar, hizmet, anahtar, grup, veri, kullanilan=None, onceki=No
         ayar["stil"], veri["ayarlar"]["gorsel"]["negatif"],
         genel=ayar.get("genel", ""), kullanilan=kullanilan, yedek=False,
         tam_metin=veri.get("metin", ""), onceki=onceki, uyar=uyarilar.append,
-        strateji=ayar.get("sahne_stratejisi", "tarih"), kalite=True, kiyafet=kiyafet,
+        strateji=ayar.get("sahne_stratejisi", VARSAYILAN_STRATEJI), kalite=True, kiyafet=kiyafet,
         # İlk sahne kullanıcının elindeyse hem isteğe bağlam olarak girer hem de o
         # karenin prompt'u birebir kullanıcının yazdığı olur.
         ilk_sahne=ilk_sahne_kaydi(ayar),

@@ -21,6 +21,7 @@ from studioflow.proje.sabitler import (
     ADIM_DENEMELERI, ADIM_SANIYE, DENEME_ADI, DENEME_ISLEM, DOSYA_ADI,
     GUNLUK_SINIR, MUZIK_VARSAYILAN_DUCKING, NASIL_OKUNUR, PROJE_DENEMELERI,
     YENIDEN_SINIR)
+from studioflow.proje.sahne_stratejileri import VARSAYILAN_STRATEJI
 
 
 def not_ekle(veri, mesaj):
@@ -127,7 +128,7 @@ def _ayar_satirlari(ayar):
         f"video.adim_saniye : {video['adim_saniye']:g}",
         f"video.ai : {video['ai']}",
         f"video.model : {video['model']}",
-        f"video.sahne_stratejisi : {video.get('sahne_stratejisi', 'tarih')}",
+        f"video.sahne_stratejisi : {video.get('sahne_stratejisi', VARSAYILAN_STRATEJI)}",
         f"video.stil : {_tek_satir_tam(video['stil'])}",
         # İlk sahne (videonun kancası): kullanıcının yazdığı **içerik** ve negatif.
         # Boşsa 1. sahne tamamen yapay zekânın; doluysa içerik isteğe bağlam olarak

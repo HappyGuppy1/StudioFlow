@@ -6,7 +6,8 @@ STRATEJI_BIRINCI_KISI = "birinci_kisi"
 # Filtresiz strateji: tarih/birinci kişiye özgü hiçbir kamera ya da anlatı kuralı eklenmez;
 # yapay zekâ kamerayı ve sahne kurgusunu her sahne için anlatıma göre kendi seçer.
 STRATEJI_DEFAULT = "default"
-VARSAYILAN_STRATEJI = STRATEJI_TARIH
+# Yeni projeler filtresiz başlar; Tarih ve Birinci kişi kullanıcı seçerse uygulanır.
+VARSAYILAN_STRATEJI = STRATEJI_DEFAULT
 
 STRATEJI_SECENEKLERI = (
     ("Default", STRATEJI_DEFAULT),
@@ -159,7 +160,7 @@ def kendi_el_var(prompt):
 
 
 def strateji_normallestir(deger):
-    """Bilinmeyen/eski kayıtları geriye dönük uyumlu tarih stratejisine düşür."""
+    """Bilinmeyen ya da boş kayıtları varsayılan stratejiye (Default) düşür."""
     return (deger if deger in {STRATEJI_TARIH, STRATEJI_BIRINCI_KISI, STRATEJI_DEFAULT}
             else VARSAYILAN_STRATEJI)
 
