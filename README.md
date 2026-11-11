@@ -21,16 +21,19 @@ yerel bir sunucu olarak çalışır ve kendi uygulama penceresinde (ya da taray�
 
 ## Kurulum
 
-Gereksinimler: **Windows**, **Python 3.12**, **ffmpeg** (PATH'te ya da bu klasörün bir
-üstündeki `ffmpeg/` klasöründe).
+Gereksinimler: **Windows** ve **Python 3.12**. ffmpeg'i kurmanıza gerek yok: bilgisayarda
+yoksa `Baslat.bat` indirir.
 
 ### Kolay yol
 
 1. Depoyu indirin (**Code › Download ZIP**) ve bir klasöre açın.
 2. `Baslat.bat` dosyasına çift tıklayın.
 
-İlk açılışta `.venv` sanal ortamı kurulur ve paketler indirilir (birkaç dakika). Sonraki
-açılışlar doğrudan başlar. Kurulum yarıda kesilirse `Baslat.bat` kaldığı yerden devam eder.
+İlk açılışta `.venv` sanal ortamı kurulur ve paketler indirilir (birkaç dakika). ffmpeg
+bilgisayarda yoksa bir kez bu klasördeki `ffmpeg/` altına indirilir (~110 MB,
+[gyan.dev](https://www.gyan.dev/ffmpeg/builds/) Windows derlemesi, SHA-256 özeti doğrulanır).
+Sonraki açılışlar doğrudan başlar. Kurulum yarıda kesilirse `Baslat.bat` kaldığı yerden
+devam eder.
 
 ### Elle kurulum
 
@@ -40,6 +43,7 @@ cd StudioFlow
 py -3.12 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+python -m sunucu.ffmpeg_indir  # ffmpeg bilgisayarda yoksa ffmpeg/ klasörüne indirir
 python -m sunucu            # uygulama penceresinde açar
 python -m sunucu --tarayici # tarayıcıda açar (http://127.0.0.1:7870)
 ```

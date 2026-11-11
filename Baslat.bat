@@ -41,10 +41,18 @@ echo  Paketler yükleniyor; ilk seferde birkaç dakika sürebilir ...
 echo tamam> "%TAMAM%"
 
 :calistir
-where ffmpeg >nul 2>&1 || if not exist "..\ffmpeg\ffmpeg.exe" (
-    echo  Uyarı: ffmpeg bulunamadı. Video ve ses işlemleri için ffmpeg'i kurup PATH'e ekleyin:
-    echo         https://ffmpeg.org/download.html
+rem ffmpeg yoksa bir kez kodun yanındaki ffmpeg\ klasörüne indirilir (bkz. sunucu\ffmpeg_indir.py).
+if exist "ffmpeg\ffmpeg.exe" goto ac
+if exist "..\ffmpeg\ffmpeg.exe" goto ac
+where ffmpeg >nul 2>&1 && goto ac
+echo  ffmpeg bulunamadı; bir kereye mahsus indiriliyor, yaklaşık 110 MB ...
+"%VENV_PY%" -m sunucu.ffmpeg_indir || (
+    echo  Uyarı: ffmpeg indirilemedi. Video ve ses işlemleri ffmpeg olmadan çalışmaz.
+    echo         İnternet bağlantını kontrol edip Baslat.bat'ı yeniden çalıştır ya da ffmpeg'i
+    echo         kendin kurup PATH'e ekle: https://ffmpeg.org/download.html
 )
+
+:ac
 "%VENV_PY%" -m sunucu %*
 if errorlevel 1 pause
 exit /b

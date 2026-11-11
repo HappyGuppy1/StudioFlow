@@ -1,6 +1,6 @@
 # Her yüklemede sıfır bir Windows makinede StudioFlow'u bir kullanıcının yapacağı gibi kurup açar:
-# Baslat.bat ortamı ve paketleri kurar, sunucu yanıt veriyor mu, veri klasörleri oluştu mu,
-# bütün modüller yükleniyor mu.
+# Baslat.bat ortamı ve paketleri kurar, ffmpeg'i (PATH'te yokmuş gibi) indirir, sunucu yanıt
+# veriyor mu, veri klasörleri oluştu mu, bütün modüller yükleniyor mu.
 name: Kurulum testi
 
 on:
@@ -22,6 +22,9 @@ jobs:
       - name: Baslat.bat ile kur ve aç
         shell: pwsh
         run: |
+          # ffmpeg'i olmayan bir bilgisayar gibi: PATH'teki ffmpeg klasörleri gizlenir.
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -and -not (Test-Path (Join-Path $_ 'ffmpeg.exe')) }) -join ';'
+          if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { throw "ffmpeg PATH'ten gizlenemedi" }
           $p = Start-Process cmd.exe -ArgumentList '/c', 'Baslat.bat', '--tarayici' -PassThru `
                  -RedirectStandardOutput baslat.log -RedirectStandardError baslat-hata.log
           $yanit = $null
@@ -39,6 +42,19 @@ jobs:
           if ($baslik -notmatch 'StudioFlow') { throw "Beklenmeyen sayfa: $baslik" }
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - name: ffmpeg indirildi ve bulunuyor mu
+        shell: pwsh
+        run: |
+          foreach ($arac in 'ffmpeg.exe', 'ffprobe.exe') {
+            if (-not (Test-Path "ffmpeg\$arac")) { throw "İndirilmedi: ffmpeg\$arac" }
+          }
+          & ffmpeg\ffmpeg.exe -version | Select-Object -First 1
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -and -not (Test-Path (Join-Path $_ 'ffmpeg.exe')) }) -join ';'
+          $bulunan = .venv\Scripts\python.exe -c "import sys; sys.path.insert(0, '.'); from studioflow.cekirdek import yollar; from studioflow.cekirdek.ffmpeg import VARSAYILAN as F; print(F.ffmpeg()); print(F.ffprobe())"
+          "StudioFlow'un bulduğu: $($bulunan -join ' | ')"
+          $kok = (Resolve-Path ffmpeg).Path
+          if (($bulunan | Where-Object { $_ -like "$kok*" }).Count -ne 2) { throw "StudioFlow indirilen ffmpeg'i bulamadı" }
 
       - name: Veri klasörleri oluştu mu
         shell: pwsh

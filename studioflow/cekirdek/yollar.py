@@ -19,8 +19,11 @@ LOGO_PNG = ROOT / "StudioFlow_logo.png"
 LOGO_ICO = ROOT / "StudioFlow_logo.ico"
 
 # Kurulumda kod `{program}\uygulama` içindedir; ffmpeg `{program}\ffmpeg` içinde gelir.
+# GitHub'dan indirilen sürümde `Baslat.bat` ffmpeg'i kodun yanındaki `ffmpeg/` klasörüne
+# indirir (bkz. `sunucu.ffmpeg_indir`).
 KURULUM_DOSYASI = ROOT / "veri-klasoru.txt"
 FFMPEG_KLASORU = ROOT.parent / "ffmpeg"
+FFMPEG_KLASORLERI = (ROOT / "ffmpeg", FFMPEG_KLASORU)
 
 
 def _veri_klasoru():
@@ -71,11 +74,13 @@ def ortam_degiskenlerini_kur():
     os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
     os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
     os.environ.setdefault("GRADIO_TEMP_DIR", str(GRADIO_GECICI))
-    # Kurulumla gelen ffmpeg/ffprobe önce bulunsun (başka bilgisayarda PATH'te ffmpeg yoktur).
-    if (FFMPEG_KLASORU / "ffmpeg.exe").is_file():
+    # Kurulumla gelen ya da Baslat.bat'ın indirdiği ffmpeg/ffprobe önce bulunsun (başka
+    # bilgisayarda PATH'te ffmpeg yoktur).
+    klasor = next((k for k in FFMPEG_KLASORLERI if (k / "ffmpeg.exe").is_file()), None)
+    if klasor is not None:
         yol = os.environ.get("PATH", "")
-        if str(FFMPEG_KLASORU) not in yol.split(os.pathsep):
-            os.environ["PATH"] = str(FFMPEG_KLASORU) + os.pathsep + yol
+        if str(klasor) not in yol.split(os.pathsep):
+            os.environ["PATH"] = str(klasor) + os.pathsep + yol
 
 
 ortam_degiskenlerini_kur()
