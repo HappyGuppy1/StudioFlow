@@ -1,6 +1,11 @@
 """Proje klasörleri: ad → klasör, listeleme, adım dosya adları, güvenli klasör kontrolü."""
+import os
 import re
 import shutil
+import stat
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import soundfile as sf
@@ -49,14 +54,114 @@ def klasoru_hazirla():
 
 
 def liste():
-    """`projects` altındaki projeleri en son değiştirilen önce olacak şekilde listele."""
+    """`projects` altındaki projeleri en son değiştirilen önce olacak şekilde listele.
+
+    Silinirken kilitli dosya yüzünden yarım kalan klasörler (`zorla_sil`) listelenmez;
+    her listelemede yeniden silinmeye çalışılır.
+    """
     klasoru_hazirla()
     try:
         klasorler = [yol for yol in PROJELER.iterdir() if yol.is_dir()]
     except OSError:
         return []
+    artiklar = [yol for yol in klasorler if _silinecek_mi(yol)]
+    for yol in artiklar:
+        _artigi_temizle(yol)
+    klasorler = [yol for yol in klasorler if yol not in artiklar]
     klasorler.sort(key=lambda yol: yol.stat().st_mtime, reverse=True)
     return [yol.name for yol in klasorler]
+
+
+# ── Zorla silme ─────────────────────────────────────────────────────────────────
+# Silme hiçbir durumda reddedilmez. Windows'ta açık kalan bir dosya (ör. hâlâ süren bir
+# ffmpeg) `rmtree`'yi yarıda keser; klasör o zaman `.silinecek-…` adıyla kenara alınır ya
+# da içine `SILINECEK` işareti konur: listeden düşer ve sonraki listelemelerde silinir.
+SILINECEK = ".silinecek"
+# Silinirken işi süren projeler: iş bittiğinde klasörü yeniden yazmışsa yine silinir
+# (bkz. `silineni_temizle`).
+SILINENLER = set()
+
+
+def _silinecek_mi(yol):
+    return yol.name.startswith(SILINECEK) or (yol / SILINECEK).exists()
+
+
+def _salt_okunuru_ac(islev, yol, _hata):
+    """`rmtree` hata kancası: salt okunur dosyayı yazılabilir yapıp bir kez daha dene."""
+    try:
+        os.chmod(yol, stat.S_IWRITE)
+        islev(yol)
+    except OSError:
+        pass
+
+
+def _rmtree(yol):
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(yol, onexc=_salt_okunuru_ac)
+    else:
+        shutil.rmtree(yol, onerror=_salt_okunuru_ac)
+
+
+def _ffmpeg_sureclerini_kapat(klasor):
+    """Klasördeki dosyalarla çalışan ffmpeg/ffprobe süreçlerini kapat (yalnızca Windows)."""
+    if os.name != "nt":
+        return
+    komut = ("Get-CimInstance Win32_Process -Filter \"Name='ffmpeg.exe' or Name='ffprobe.exe'\" | "
+             "Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($env:SF_SILINEN_KLASOR, "
+             "[StringComparison]::OrdinalIgnoreCase) -ge 0 } | "
+             "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", komut],
+                       capture_output=True, timeout=30,
+                       env={**os.environ, "SF_SILINEN_KLASOR": str(klasor)},
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def zorla_sil(klasor, deneme=5):
+    """Klasörü ne olursa olsun kaldır; tamamen silindiyse True.
+
+    Salt okunur dosyalar yazılabilir yapılır; kilitli dosya kalırsa klasördeki ffmpeg
+    süreçleri kapatılıp birkaç saniye yeniden denenir. Yine de kalan dosya varsa klasör
+    listeden düşürülür (`SILINECEK`) ve sonraki listelemelerde silinir.
+    """
+    klasor = Path(klasor)
+    for sira in range(deneme):
+        if not klasor.exists():
+            return True
+        _rmtree(klasor)
+        if not klasor.exists():
+            return True
+        if sira == 0:
+            _ffmpeg_sureclerini_kapat(klasor)
+        time.sleep(0.5 + 0.25 * sira)
+    try:
+        klasor.rename(klasor.with_name(f"{SILINECEK}-{klasor.name}-{int(time.time())}"))
+    except OSError:
+        try:
+            (klasor / SILINECEK).touch()
+        except OSError:
+            pass
+    return False
+
+
+def _artigi_temizle(yol):
+    _rmtree(yol)
+    if yol.exists() and not yol.name.startswith(SILINECEK):
+        try:
+            (yol / SILINECEK).touch()
+        except OSError:
+            pass
+
+
+def silineni_temizle(ad):
+    """Silinirken çalışan iş bitti: klasörü yeniden yazdıysa onu da kaldır."""
+    ad_slug = slug(ad)
+    if ad_slug in SILINENLER:
+        SILINENLER.discard(ad_slug)
+        if proje_klasoru(ad_slug).exists():
+            zorla_sil(proje_klasoru(ad_slug))
 
 
 def gorsel_adim_sinirlari(model):

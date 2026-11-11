@@ -427,7 +427,7 @@ function bilgiyiCiz() {
 }
 async function projeyiSil() {
   const ad = durum.proje.ad;
-  if (!(await onayIste(`'${ad}' silinsin mi?`, "Proje klasörü; kareler, klipler, sesler, altyazılar ve dışa aktarılan videolar dahil kalıcı olarak silinir. Geri alınamaz."))) return;
+  if (!(await onayIste(`'${ad}' silinsin mi?`, "Proje çalışıyorsa ya da dışa aktarılıyorsa önce durdurulur. Proje klasörü; kareler, klipler, sesler, altyazılar ve dışa aktarılan videolar dahil kalıcı olarak silinir. Geri alınamaz."))) return;
   try {
     const sonuc = await api(projeYolu(), { method: "DELETE" });
     history.replaceState(null, "", location.pathname); await kutuphaneyiAc();

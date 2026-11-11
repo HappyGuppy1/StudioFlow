@@ -1,5 +1,6 @@
 """Proje yönetimi: sahne listesi, adım sil/yenile, gösterme, sıfırlama, silme."""
 import shutil
+import time
 
 from studioflow.cekirdek.metin import ilk_satir as _ilk_satir
 from studioflow.proje.akis import akis_calistir
@@ -9,9 +10,10 @@ from studioflow.proje.akis_sahne import adimlari_kur, sahne_plani_uret
 from studioflow.proje.akis_servis import VIDEO_HF, VIDEO_SERVIS_ADI
 from studioflow.proje.ayar_normalize import ayarlari_normalize
 from studioflow.proje.birlestirme import adim_sifirla, adim_videosunu_sifirla
-from studioflow.proje.calisma_kilidi import CALISAN, IPTAL, calisan
+from studioflow.proje.calisma_kilidi import CALISAN, IPTAL, birak, calisan
 from studioflow.proje.depo import (
-    adim_tamam, guvenli_klasor, proje_dosyalari, proje_klasoru, slug)
+    SILINENLER, adim_tamam, guvenli_klasor, proje_dosyalari, proje_klasoru, silineni_temizle,
+    slug, zorla_sil)
 from studioflow.proje.dosya import not_ekle, proje_oku, proje_yaz
 from studioflow.proje.ilerleme import arayuz_paketi, bos_ilerleme_html, bos_paket, paket_ozeti
 from studioflow.proje.sabitler import DOSYA_ADI, HAM_VIDEO_ADI, VARSAYILAN_NEGATIF
@@ -102,13 +104,15 @@ def sahne_prompt_uygula(ad, index, image_prompt, negative_prompt):
     proje_yaz(veri)
     yield arayuz_paketi(veri, f"Adım {hedef} promptu kaydedildi · görsel baştan üretiliyor…")
     CALISAN["slug"] = slug(ad)
+    SILINENLER.discard(slug(ad))
     try:
         IPTAL.clear()
         # Kullanıcı prompt'u panelden kendisi düzenledi: prompt onayı kapısı atlanır.
         yield from akis_calistir(ad, veri.get("metin") or "", veri["ayarlar"],
                                  prompt_onayli=True)
     finally:
-        CALISAN["slug"] = ""
+        birak(slug(ad))
+        silineni_temizle(ad)
 
 
 def prompt_uretimi_baslat(ad, ai="", model="", sahne_on_plan=None):
@@ -148,12 +152,14 @@ def prompt_uretimi_baslat(ad, ai="", model="", sahne_on_plan=None):
     yield arayuz_paketi(veri, f"Sahne planı ve prompt'lar **{etiket['label']}** ile "
                         "yazılıyor…")
     CALISAN["slug"] = slug(ad)
+    SILINENLER.discard(slug(ad))
     try:
         IPTAL.clear()
         yield from akis_calistir(ad, veri.get("metin") or "", veri["ayarlar"],
                                  prompt_onayli=True, sahne_on_plan=sahne_on_plan)
     finally:
-        CALISAN["slug"] = ""
+        birak(slug(ad))
+        silineni_temizle(ad)
 
 
 def sahne_sil_yenile(ad, index):
@@ -228,7 +234,8 @@ def sahne_sil_yenile(ad, index):
         yield from akis_calistir(ad, veri.get("metin") or "", veri["ayarlar"],
                                  prompt_onayli=True)
     finally:
-        CALISAN["slug"] = ""
+        birak(slug(ad))
+        silineni_temizle(ad)
 
 
 def _proje_hedefi(ad, islem):
@@ -372,12 +379,14 @@ def gorsel_onayi_ver(ad, video_servisi=VIDEO_HF):
                         + (f"\nKaresi olmayan {len(eksik)} adım önce üretilecek; yeni kare "
                            "çıkarsa onay yeniden sorulur." if eksik else ""))
     CALISAN["slug"] = slug(ad)
+    SILINENLER.discard(slug(ad))
     try:
         IPTAL.clear()
         yield from akis_calistir(ad, veri.get("metin") or "", veri["ayarlar"], video_servisi,
                                  prompt_onayli=True)
     finally:
-        CALISAN["slug"] = ""
+        birak(slug(ad))
+        silineni_temizle(ad)
 
 
 def gorsel_sil_yenile(ad, index):
@@ -412,6 +421,7 @@ def gorsel_sil_yenile(ad, index):
     proje_yaz(veri)
     yield arayuz_paketi(veri, f"Adım {adim['index']} karesi kaldırıldı · yenisi üretiliyor…")
     CALISAN["slug"] = slug(ad)
+    SILINENLER.discard(slug(ad))
     try:
         IPTAL.clear()
         # Akış yalnızca eksik kareyi üretir ve görsel onayı kapısında durur; prompt'lar
@@ -419,7 +429,8 @@ def gorsel_sil_yenile(ad, index):
         yield from akis_calistir(ad, veri.get("metin") or "", veri["ayarlar"],
                                  prompt_onayli=True)
     finally:
-        CALISAN["slug"] = ""
+        birak(slug(ad))
+        silineni_temizle(ad)
 
 
 def proje_goster(ad):
@@ -503,20 +514,32 @@ def sifirla(ad):
             "**Projeye başlat** sesi ve bütün adımları baştan üretir.")
 
 
-def sil(ad):
-    """Projenin klasörünü ve içindeki her şeyi sil."""
+def sil(ad, bekle=5.0):
+    """Projenin klasörünü ve içindeki her şeyi sil; çalışıyorsa önce durdurur.
+
+    Silme hiçbir durumda reddedilmez: çalışan akışa durdurma işareti verilir ve en çok
+    `bekle` saniye beklenir. Hata ya da takılan bir adım yüzünden akış durmazsa kaydı
+    zorla boşaltılır; akış sonradan bittiğinde klasörü yeniden yazmışsa o da silinir
+    (`silineni_temizle`). Kilitli dosyalar için bkz. `zorla_sil`.
+    """
     ad = (ad or "").strip()
     if not ad:
         return "Listeden bir proje seç."
-    if calisan() == slug(ad):
-        return f"'{ad}' şu anda çalışıyor. Önce **Durdur**'a bas, sonra sil."
     klasor = guvenli_klasor(ad)
     if klasor is None:
         return f"'{ad}' klasörü bulunamadı."
+    durduruldu = calisan() == klasor.name
+    if durduruldu:
+        SILINENLER.add(klasor.name)
+        IPTAL.set()
+        bitis = time.monotonic() + bekle
+        while calisan() == klasor.name and time.monotonic() < bitis:
+            time.sleep(0.2)
+        birak(klasor.name)
     dosya = len(proje_dosyalari(klasor))
-    try:
-        shutil.rmtree(klasor)
-    except OSError as hata:
-        return f"Silinemedi: {_ilk_satir(hata, 200)}"
-    return (f"'{ad}' silindi · {dosya} dosya ve klasörün tamamı kaldırıldı. "
+    on_ek = "Çalışma durduruldu · " if durduruldu else ""
+    if not zorla_sil(klasor):
+        return (f"{on_ek}'{ad}' silindi; açık kalan birkaç dosya, serbest kalınca "
+                "kendiliğinden temizlenecek.")
+    return (f"{on_ek}'{ad}' silindi · {dosya} dosya ve klasörün tamamı kaldırıldı. "
             "Aynı adı yeniden kullanırsan proje sıfırdan başlar.")

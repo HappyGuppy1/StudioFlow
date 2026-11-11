@@ -25,10 +25,10 @@ from studioflow.proje import coklu_uretim, karakterler as kadro
 from studioflow.proje.ayar_normalize import ayarlari_normalize
 from studioflow.proje.on_ayarlar import on_ayar_video_servisi
 from studioflow.proje.birlestirme import adim_sifirla, klibi_sahneye_uzat
-from studioflow.proje.calisma_kilidi import CALISAN, IPTAL
+from studioflow.proje.calisma_kilidi import CALISAN, IPTAL, birak
 from studioflow.proje.depo import (
-    adim_dosya_adi, adim_suresi, adim_tamam, calismayi_temizle, dosya_kopyala, dosya_suresi,
-    proje_klasoru, slug)
+    SILINENLER, adim_dosya_adi, adim_suresi, adim_tamam, calismayi_temizle, dosya_kopyala,
+    dosya_suresi, proje_klasoru, silineni_temizle, slug)
 from studioflow.proje.dosya import not_ekle, proje_oku, proje_yaz
 from studioflow.proje.ilerleme import arayuz_paketi, bos_paket, paket_ozeti
 from studioflow.proje.katmanlar.ses_ekleme import ekleme_sifirla
@@ -619,10 +619,12 @@ def proje_calistir(ad, metin, ayarlar, sahne_on_plan=None):
         yield bos_paket("Proje adı gerekli.")
         return
     CALISAN["slug"] = slug(ad)
+    SILINENLER.discard(slug(ad))       # aynı adla yeniden kurulan proje silinmesin
     try:
         yield from akis_calistir(ad, metin, ayarlar, sahne_on_plan=sahne_on_plan)
     finally:
-        CALISAN["slug"] = ""
+        birak(slug(ad))
+        silineni_temizle(ad)
 
 
 # Proje akışının ara dosyalarını yazdığı `.calisma` alt klasörleri (bkz. `calisma_klasoru`).

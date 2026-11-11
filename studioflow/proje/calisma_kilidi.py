@@ -22,6 +22,15 @@ class CalismaKilidi:
         """Şu anda çalışan projenin klasör adı (yoksa boş metin)."""
         return self.kayit["slug"]
 
+    def birak(self, slug):
+        """Çalışma bitti: kayıt hâlâ bu projeninse boşalt.
+
+        Proje silinirken takılı akışın kaydı zorla boşaltılır (bkz. `yonetim.sil`); o akış
+        sonradan bittiğinde arada başlamış başka projenin kaydını silmemelidir.
+        """
+        if self.kayit["slug"] == slug:
+            self.kayit["slug"] = ""
+
 
 # Uygulamanın paylaşılan kilidi; eski adlar aynı nesnelere bağlıdır.
 VARSAYILAN = CalismaKilidi()
@@ -29,3 +38,4 @@ IPTAL = VARSAYILAN.iptal
 CALISAN = VARSAYILAN.kayit
 durdur = VARSAYILAN.durdur
 calisan = VARSAYILAN.calisan
+birak = VARSAYILAN.birak

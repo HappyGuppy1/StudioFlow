@@ -103,6 +103,7 @@ def _baslat(ad, tur, baslik, uretec_fabrikasi, klasor_sart=True, sonuc_al=None):
                                "durdur ya da bitmesini bekle; iki akış aynı kayda yazarsa bozulur.")
         if calisma_kilidi.calisan():
             raise UretimHatasi(f"'{calisma_kilidi.calisan()}' projesi çalışıyor.")
+        depo.SILINENLER.discard(depo.slug(ad))     # aynı adla yeniden kurulan proje silinmesin
         _IS = Is(ad, tur, baslik)
         is_ = _IS
     ozet = is_.ozet()      # iş çok hızlı bitse de çağıran "başladı" yanıtını alır
@@ -138,6 +139,7 @@ def _calis(is_, uretec_fabrikasi, sonuc_al=None):
         is_.gecmis.append(is_.mesaj)
     finally:
         is_.bitis = time.time()
+        depo.silineni_temizle(is_.ad)
 
 
 def baslat_ozel(ad, tur, baslik, uretec_fabrikasi):
@@ -301,16 +303,27 @@ def deneme_sifirla(ad):
     return _temiz(paket[0] if isinstance(paket, (tuple, list)) else paket)
 
 
-def sil(ad):
-    """Projeyi kalıcı olarak sil (StudioFlow'un `yonetim.sil`'i); çalışırken silinmez."""
+def sil(ad, bekle=5.0):
+    """Projeyi kalıcı olarak sil (StudioFlow'un `yonetim.sil`'i); çalışıyorsa önce durdurur.
+
+    Silme hiçbir durumda reddedilmez: projede süren işe durdurma işareti verilir ve en çok
+    `bekle` saniye beklenir. Hata ya da takılan bir adım yüzünden iş durmazsa "durduruldu"
+    sayılır (yeni işler başlatılabilir); iş sonradan bittiğinde klasörü yeniden yazmışsa
+    o da silinir (`depo.silineni_temizle`).
+    """
     klasor = depo.guvenli_klasor(ad)
     if klasor is None or not klasor.is_dir():
         raise veri.ProjeYok(ad)
-    is_ = is_durumu()
-    if (is_ and is_["durum"] == "calisiyor" and is_["ad"] == klasor.name) \
-            or baska_yerde_calisiyor(klasor.name):
-        raise UretimHatasi("Proje çalışırken silinmez; önce durdur.")
-    mesaj = yonetim.sil(klasor.name)
-    if klasor.exists():
-        raise UretimHatasi(mesaj)
-    return {"mesaj": mesaj}
+    is_ = _IS
+    if is_ and is_.durum == "calisiyor" and depo.slug(is_.ad) == klasor.name:
+        depo.SILINENLER.add(klasor.name)
+        is_.durdurma_istendi = True
+        calisma_kilidi.durdur()
+        bitis = time.monotonic() + bekle
+        while is_.durum == "calisiyor" and time.monotonic() < bitis:
+            time.sleep(0.2)
+        if is_.durum == "calisiyor":
+            is_.durum, is_.bitis = "durduruldu", time.time()
+        is_.mesaj = "Proje silindi."
+        bekle = 1.0                     # iş için zaten beklendi
+    return {"mesaj": _temiz(yonetim.sil(klasor.name, bekle=bekle))}

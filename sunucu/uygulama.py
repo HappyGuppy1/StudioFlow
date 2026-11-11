@@ -20,6 +20,7 @@ olarak çalıştırır (kota harcayabilir, `proje.txt`'e yazar); iş `GET /api/u
     Dışa aktarma  GET /api/proje/{ad}/disa-aktar · PUT /ayar · POST · POST /iptal
     Dosyalar      GET /medya/{ad}/{yol} · /dosyalar/{ad}/{yol} · /gecici/{ad} · / (web/)
 """
+import time
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -69,13 +70,17 @@ def proje(ad: str):
 
 @app.delete("/api/proje/{ad}")
 def proje_sil(ad: str):
-    """Projeyi (ya da taslağı) kalıcı olarak sil; çalışırken/dışa aktarılırken reddedilir."""
+    """Projeyi (ya da taslağı) kalıcı olarak sil; süren üretim ve dışa aktarma durdurulur."""
     if taslak.var_mi(ad) and not (depo.PROJELER / depo.slug(ad) / "proje.txt").is_file():
         taslak.sil(ad)
         return {"mesaj": f"'{depo.slug(ad)}' taslağı silindi."}
     is_ = disa_aktar.is_durumu(ad)
     if is_ and is_.get("durum") == "calisiyor":
-        raise HTTPException(status_code=409, detail="Dışa aktarma sürüyor; önce iptal et.")
+        disa_aktar.iptal_et(ad)         # ffmpeg süreci kapatılır, klasördeki dosyalar serbest kalır
+        bitis = time.monotonic() + 5
+        while (disa_aktar.is_durumu(ad) or {}).get("durum") == "calisiyor" \
+                and time.monotonic() < bitis:
+            time.sleep(0.2)
     return _uret(uretim.sil, ad)
 
 
