@@ -59,6 +59,7 @@ button, select, input { font: inherit; color: inherit; }
 .marka b { color: var(--vurgu); font-weight: 700; }
 .marka-isaret { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--vurgu-koyu); font-size: 13px; }
 .proje-izgara { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.imza { margin-top: 32px; text-align: center; color: var(--soluk); font-size: 12px; letter-spacing: .06em; opacity: .8; }
 .proje-kart { display: grid; gap: 8px; padding: 0 0 12px; border: 1px solid var(--cizgi); border-radius: 12px; background: var(--yuzey); overflow: hidden; cursor: pointer; text-align: left; }
 .proje-kart:hover { border-color: var(--vurgu); }
 .proje-kart .kapak { aspect-ratio: 16 / 9; background: var(--yuzey-2) center / cover no-repeat; }
