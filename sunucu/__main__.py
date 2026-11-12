@@ -34,6 +34,10 @@ def _gunluge_yonlendir():
 
 def main():
     _gunluge_yonlendir()
+    # ffmpeg yalnızca Baslat.bat ile açılınca indiriliyordu; kısayolla açılınca da indirilsin.
+    from studioflow.cekirdek import yollar  # noqa: F401  (indirilmiş ffmpeg'i PATH'e ekler)
+    from sunucu import ffmpeg_indir
+    ffmpeg_indir.arka_planda_hazirla()
     if "--tarayici" not in sys.argv:
         try:
             from sunucu import pencere

@@ -1,15 +1,19 @@
 """`python -m sunucu.ffmpeg_indir`: ffmpeg yoksa kodun yanındaki `ffmpeg/` klasörüne indirir.
 
 GitHub'dan indirilen StudioFlow ffmpeg getirmez (kurulum programı getirir). `Baslat.bat`
-ffmpeg'i PATH'te ya da `ffmpeg/` klasöründe bulamazsa bunu bir kez çalıştırır. Paket
+ffmpeg'i PATH'te ya da `ffmpeg/` klasöründe bulamazsa bunu bir kez çalıştırır; uygulama
+nasıl açılırsa açılsın (kısayol, `python -m sunucu`) açılışta `arka_planda_hazirla` da
+aynı işi yapar (bkz. `hazirla`). Paket
 gyan.dev'in Windows "essentials" derlemesidir; SHA-256 özeti doğrulanır, zip'ten yalnızca
 `ffmpeg.exe` ve `ffprobe.exe` çıkarılır. `studioflow.cekirdek.yollar` bu klasörü PATH'in
 başına ekler. Yalnızca standart kitaplık kullanılır.
 """
 import hashlib
+import os
 import shutil
 import sys
 import tempfile
+import threading
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -17,7 +21,11 @@ from pathlib import Path
 PAKET = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
 OZET = PAKET + ".sha256"
 HEDEF = Path(__file__).resolve().parents[1] / "ffmpeg"
+# Kod yazılamayan bir klasördeyse (ör. Program Files) kullanıcının yerel klasörü kullanılır;
+# `studioflow.cekirdek.yollar.FFMPEG_KLASORLERI` bu klasörü de tanır.
+YEDEK_HEDEF = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "StudioFlow" / "ffmpeg"
 ARACLAR = ("ffmpeg.exe", "ffprobe.exe")
+WINDOWS = sys.platform == "win32"
 BASLIK = {"User-Agent": "StudioFlow-ffmpeg-indirici"}
 
 
@@ -63,6 +71,62 @@ def indir(hedef=HEDEF):
             shutil.move(str(hazirlik / arac), str(hedef / arac))
     print(f"  ffmpeg kuruldu: {hedef}")
     return hedef
+
+
+_KILIT = threading.Lock()
+
+
+def _yazilabilir(klasor):
+    try:
+        klasor.mkdir(parents=True, exist_ok=True)
+        deneme = klasor / ".yazma-denemesi"
+        deneme.write_bytes(b"")
+        deneme.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def hazirla():
+    """ffmpeg PATH'te yoksa indir ve PATH'e ekle; ffmpeg'in yolunu döndür.
+
+    `Baslat.bat` ffmpeg'i yalnızca kendisiyle açılınca indirir; masaüstü kısayolu
+    (`Baslat.vbs`, pythonw) ya da `python -m sunucu` ile açılan uygulama indirmeyi hiç
+    yapmıyordu (12.11.2026: güncel kurulumda dışa aktarma "ffmpeg bulunamadı" ile durdu).
+    Uygulama açılışta bunu arka planda çağırır; dışa aktarma da ffmpeg'i bulamazsa çağırıp
+    süren indirmenin bitmesini bekler. Hata olursa `RuntimeError` yükselir.
+    """
+    with _KILIT:
+        yol = shutil.which("ffmpeg")
+        if yol:
+            return yol
+        if not WINDOWS:
+            raise RuntimeError("ffmpeg bulunamadı; bu sistemde paket yöneticisiyle kur "
+                               "(otomatik indirme yalnızca Windows'ta).")
+        hedef = next((k for k in (HEDEF, YEDEK_HEDEF) if _yazilabilir(k)), None)
+        if hedef is None:
+            raise RuntimeError(f"ffmpeg indirilemedi: {HEDEF} ve {YEDEK_HEDEF} klasörlerine "
+                               "yazılamıyor.")
+        try:
+            indir(hedef)
+        except Exception as hata:
+            raise RuntimeError(f"ffmpeg indirilemedi: {hata}") from hata
+        os.environ["PATH"] = str(hedef) + os.pathsep + os.environ.get("PATH", "")
+        yol = shutil.which("ffmpeg")
+        if not yol:
+            raise RuntimeError(f"ffmpeg indirildi ama bulunamadı: {hedef}")
+        return yol
+
+
+def arka_planda_hazirla():
+    """Açılışta ffmpeg'i arka planda hazırla; pencerenin açılmasını bekletmez."""
+    def calis():
+        try:
+            hazirla()
+        except Exception as hata:  # uygulama ffmpeg'siz de açılır; dışa aktarma yeniden dener
+            print(f"  {hata}", file=sys.stderr)
+
+    threading.Thread(target=calis, name="ffmpeg-hazirla", daemon=True).start()
 
 
 if __name__ == "__main__":

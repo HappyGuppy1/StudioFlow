@@ -23,7 +23,10 @@ LOGO_ICO = ROOT / "StudioFlow_logo.ico"
 # indirir (bkz. `sunucu.ffmpeg_indir`).
 KURULUM_DOSYASI = ROOT / "veri-klasoru.txt"
 FFMPEG_KLASORU = ROOT.parent / "ffmpeg"
-FFMPEG_KLASORLERI = (ROOT / "ffmpeg", FFMPEG_KLASORU)
+# Kod klasörü yazılamıyorsa (ör. Program Files) uygulama ffmpeg'i yerel klasöre indirir.
+FFMPEG_YEREL = (Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+                / "StudioFlow" / "ffmpeg")
+FFMPEG_KLASORLERI = (ROOT / "ffmpeg", FFMPEG_KLASORU, FFMPEG_YEREL)
 
 
 def _veri_klasoru():

@@ -183,9 +183,15 @@ def ayar_yaz(ad, gelen):
 # ── ffmpeg yardımcıları ─────────────────────────────────────────────────────────
 def _ffmpeg():
     yol = shutil.which("ffmpeg")
-    if not yol:
-        raise DisaAktarimHatasi("ffmpeg bulunamadı; StudioFlow'un kurulumundaki ffmpeg PATH'te olmalı.")
-    return yol
+    if yol:
+        return yol
+    # Açılıştaki indirme sürüyorsa biter, hiç başlamadıysa şimdi indirilir (~110 MB).
+    from sunucu import ffmpeg_indir
+    try:
+        return ffmpeg_indir.hazirla()
+    except RuntimeError as hata:
+        raise DisaAktarimHatasi(f"{str(hata).rstrip('.')}. İnternet bağlantını kontrol edip uygulamayı yeniden "
+                                "aç; ffmpeg otomatik indirilir.") from hata
 
 
 def _calistir(komut, cwd=None, is_=None):
