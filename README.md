@@ -21,10 +21,22 @@ yerel bir sunucu olarak çalışır ve kendi uygulama penceresinde (ya da taray�
 
 ## Kurulum
 
+1. [Releases](https://github.com/HappyGuppy1/StudioFlow/releases) sayfasından son sürümün
+   **`StudioFlow-Kurulum-x.y.z.exe`** dosyasını indirin.
+2. Çift tıklayın. Windows "Bilgisayarınız korundu" derse **Ek bilgi → Yine de çalıştır**'a basın
+   (program imzasız olduğu için çıkan olağan uyarı).
+3. Kurulumda veri klasörünü seçin (varsayılan **Belgeler\StudioFlow**). Bitince masaüstündeki
+   **StudioFlow** simgesiyle açın.
+
+Python ya da ffmpeg kurmanıza gerek yok; hepsi kurulum dosyasının içindedir. Yönetici izni
+istemez. Yeni sürüm eskisinin üzerine kurulur; projeleriniz ve API anahtarlarınız korunur.
+
+## Geliştiriciler için: kaynak koddan çalıştırma
+
 Gereksinimler: **Windows** ve **Python 3.12**. ffmpeg'i kurmanıza gerek yok: bilgisayarda
 yoksa `Baslat.bat` indirir.
 
-### Kolay yol
+### Baslat.bat ile
 
 1. Depoyu indirin (**Code › Download ZIP**) ve bir klasöre açın.
 2. `Baslat.bat` dosyasına çift tıklayın.
